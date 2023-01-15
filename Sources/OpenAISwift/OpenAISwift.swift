@@ -7,6 +7,7 @@ import FoundationXML
 public enum OpenAIError: Error {
     case genericError(error: Error)
     case decodingError(error: Error)
+    case invalidStatusCode(code: Int?)
 }
 
 public class OpenAISwift {
@@ -135,5 +136,64 @@ extension OpenAISwift {
                 continuation.resume(with: result)
             }
         }
+    }
+}
+
+extension OpenAISwift {
+    
+    /// Send a Completion to the OpenAI API with a streamed response
+    /// - Parameters:
+    ///     - prompt: The Text Prompt
+    ///     - model: The AI Model to Use. Set to `OpenAIModelType.gpt3(.davinci)` by default which is the most capable model
+    ///     - maxTokens: The limit character for the returned response, defaults to 16 as per the API
+    ///     - onDataReceived: A block that is called whenever new data is received
+    ///
+    /// The `onDataReceived` block will return a string in this format:
+    /// ```
+    /// data: {"id": "cmpl-6YdshWq7X9sxhrds3Joa18SJDLuiP", "object": "text_completion", "created": 1673775462, "choices": [{"text": " kitchen", "index": 0, "logprobs": null, "finish_reason": null}], "model": "text-davinci-003"}
+    /// ```
+    /// It seems to stream per word and the `finish_reason` will be `stop` for the end, followed by:
+    /// ```
+    /// data: [DONE]
+    /// ```
+    @available(swift 5.5)
+    @available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *)
+    @discardableResult
+    public func streamCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, onDataReceived: ((OpenAI) -> Void)? = nil) async throws -> [OpenAI] {
+        let endpoint = Endpoint.completions
+        let body = Command(prompt: prompt, model: model.modelName, maxTokens: maxTokens, stream: true)
+        let request = prepareRequest(endpoint, body: body)
+        
+        let session = URLSession.shared
+        
+        let (asyncBytes, response) = try await session.bytes(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            if let httpResponse = response as? HTTPURLResponse {
+                throw OpenAIError.invalidStatusCode(code: httpResponse.statusCode)
+            }
+            throw OpenAIError.invalidStatusCode(code: nil)
+        }
+        
+        var results: [OpenAI] = []
+        for try await line in asyncBytes.lines {
+            
+            if let parsedLine = processStreamLine(line: line) {
+                onDataReceived?(parsedLine)
+                results.append(parsedLine)
+            }
+        }
+        return results
+    }
+    
+    /// Processes the data received by the completion stream by stripping the first `data: `
+    /// string which leaves us the clean JSON to decode into an `OpenAI` object
+    private func processStreamLine(line: String) -> OpenAI? {
+        guard line.starts(with: "data: ") else { return nil }
+        
+        let jsonString = line.dropFirst("data: ".count)
+        let jsonData = jsonString.data(using: .utf8)!
+        return try? JSONDecoder().decode(OpenAI.self, from: jsonData)
     }
 }
