@@ -159,7 +159,7 @@ extension OpenAISwift {
     @available(swift 5.5)
     @available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *)
     @discardableResult
-    public func streamCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil, onDataReceived: ((OpenAI) -> Void)? = nil) async throws -> [OpenAI] {
+    public func streamCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil, onDataReceived: ((OpenAI) -> Void)) async throws -> [OpenAI] {
         
         let endpoint = Endpoint.completions
         let body = Command(prompt: prompt, model: model.modelName, maxTokens: maxTokens, stream: true, stop: stop)
@@ -181,7 +181,7 @@ extension OpenAISwift {
         for try await line in asyncBytes.lines {
             
             if let parsedLine = processStreamLine(line: line) {
-                onDataReceived?(parsedLine)
+                onDataReceived(parsedLine)
                 results.append(parsedLine)
             }
         }
