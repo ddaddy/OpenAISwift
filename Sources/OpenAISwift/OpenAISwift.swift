@@ -25,9 +25,9 @@ extension OpenAISwift {
     ///   - model: The AI Model to Use. Set to `OpenAIModelType.gpt3(.davinci)` by default which is the most capable model
     ///   - maxTokens: The limit character for the returned response, defaults to 16 as per the API
     ///   - completionHandler: Returns an OpenAI Data Model
-    public func sendCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil, completionHandler: @escaping (Result<OpenAI, OpenAIError>) -> Void) {
+    public func sendCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil, user: String? = nil, completionHandler: @escaping (Result<OpenAI, OpenAIError>) -> Void) {
         let endpoint = Endpoint.completions
-        let body = Command(prompt: prompt, model: model.modelName, maxTokens: maxTokens, stop: stop)
+        let body = Command(prompt: prompt, model: model.modelName, maxTokens: maxTokens, stop: stop, user: user)
         let request = prepareRequest(endpoint, body: body)
         
         makeRequest(request: request) { result in
@@ -114,9 +114,9 @@ extension OpenAISwift {
     /// - Returns: Returns an OpenAI Data Model
     @available(swift 5.5)
     @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
-    public func sendCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil) async throws -> OpenAI {
+    public func sendCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil, user: String? = nil) async throws -> OpenAI {
         return try await withCheckedThrowingContinuation { continuation in
-            sendCompletion(with: prompt, model: model, maxTokens: maxTokens, stop: stop) { result in
+            sendCompletion(with: prompt, model: model, maxTokens: maxTokens, stop: stop, user: user) { result in
                 continuation.resume(with: result)
             }
         }
@@ -159,10 +159,10 @@ extension OpenAISwift {
     @available(swift 5.5)
     @available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *)
     @discardableResult
-    public func streamCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil, onDataReceived: ((OpenAI) -> Void)) async throws -> [OpenAI] {
+    public func streamCompletion(with prompt: String, model: OpenAIModelType = .gpt3(.davinci), maxTokens: Int = 16, stop: [String]? = nil, user: String? = nil, onDataReceived: ((OpenAI) -> Void)) async throws -> [OpenAI] {
         
         let endpoint = Endpoint.completions
-        let body = Command(prompt: prompt, model: model.modelName, maxTokens: maxTokens, stream: true, stop: stop)
+        let body = Command(prompt: prompt, model: model.modelName, maxTokens: maxTokens, stream: true, stop: stop, user: user)
         let request = prepareRequest(endpoint, body: body)
         
         let session = URLSession.shared

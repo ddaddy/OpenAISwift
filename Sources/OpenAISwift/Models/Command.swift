@@ -10,13 +10,15 @@ class Command: Encodable {
     var maxTokens: Int
     var stream: Bool
     var stop: [String]?
+    var user: String?
     
-    init(prompt: String, model: String, maxTokens: Int, stream: Bool = false, stop: [String]? = nil) {
+    init(prompt: String, model: String, maxTokens: Int, stream: Bool = false, stop: [String]? = nil, user: String? = nil) {
         self.prompt = prompt
         self.model = model
         self.maxTokens = maxTokens
         self.stream = stream
         self.stop = stop
+        self.user = user
     }
     
     enum CodingKeys: String, CodingKey {
@@ -25,5 +27,6 @@ class Command: Encodable {
         case maxTokens = "max_tokens"
         case stream
         case stop
+        case user
     }
 }
