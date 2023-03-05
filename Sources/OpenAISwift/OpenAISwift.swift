@@ -8,6 +8,7 @@ public enum OpenAIError: Error {
     case genericError(error: Error)
     case decodingError(error: Error)
     case invalidStatusCode(code: Int?)
+    case rateLimited
 }
 
 public class OpenAISwift {
@@ -41,7 +42,11 @@ extension OpenAISwift {
                     completionHandler(.failure(.decodingError(error: error)))
                 }
             case .failure(let failure):
-                completionHandler(.failure(.genericError(error: failure)))
+                if let failure = failure as? OpenAIError {
+                    completionHandler(.failure(failure))
+                } else {
+                    completionHandler(.failure(.genericError(error: failure)))
+                }
             }
         }
     }
@@ -67,7 +72,11 @@ extension OpenAISwift {
                     completionHandler(.failure(.decodingError(error: error)))
                 }
             case .failure(let failure):
-                completionHandler(.failure(.genericError(error: failure)))
+                if let failure = failure as? OpenAIError {
+                    completionHandler(.failure(failure))
+                } else {
+                    completionHandler(.failure(.genericError(error: failure)))
+                }
             }
         }
     }
@@ -93,7 +102,11 @@ extension OpenAISwift {
                     completionHandler(.failure(.decodingError(error: error)))
                 }
             case .failure(let failure):
-                completionHandler(.failure(.genericError(error: failure)))
+                if let failure = failure as? OpenAIError {
+                    completionHandler(.failure(failure))
+                } else {
+                    completionHandler(.failure(.genericError(error: failure)))
+                }
             }
         }
     }
@@ -101,9 +114,28 @@ extension OpenAISwift {
     private func makeRequest(request: URLRequest, completionHandler: @escaping (Result<Data, Error>) -> Void) {
         let session = URLSession.shared
         let task = session.dataTask(with: request) { (data, response, error) in
+            
             if let error = error {
                 completionHandler(.failure(error))
-            } else if let data = data {
+                return
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    completionHandler(.failure(OpenAIError.invalidStatusCode(code: nil)))
+                    return
+                }
+                
+                if httpResponse.statusCode == 429 {
+                    completionHandler(.failure(OpenAIError.rateLimited))
+                } else {
+                    completionHandler(.failure(OpenAIError.invalidStatusCode(code: httpResponse.statusCode)))
+                }
+                return
+            }
+            
+            if let data = data {
                 completionHandler(.success(data))
             }
         }
@@ -195,7 +227,11 @@ extension OpenAISwift {
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
             if let httpResponse = response as? HTTPURLResponse {
-                throw OpenAIError.invalidStatusCode(code: httpResponse.statusCode)
+                if httpResponse.statusCode == 429 {
+                    throw OpenAIError.rateLimited
+                } else {
+                    throw OpenAIError.invalidStatusCode(code: httpResponse.statusCode)
+                }
             }
             throw OpenAIError.invalidStatusCode(code: nil)
         }
@@ -242,7 +278,11 @@ extension OpenAISwift {
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
             if let httpResponse = response as? HTTPURLResponse {
-                throw OpenAIError.invalidStatusCode(code: httpResponse.statusCode)
+                if httpResponse.statusCode == 429 {
+                    throw OpenAIError.rateLimited
+                } else {
+                    throw OpenAIError.invalidStatusCode(code: httpResponse.statusCode)
+                }
             }
             throw OpenAIError.invalidStatusCode(code: nil)
         }
