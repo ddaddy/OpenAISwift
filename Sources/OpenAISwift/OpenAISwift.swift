@@ -19,6 +19,33 @@ public class OpenAISwift {
 }
 
 extension OpenAISwift {
+    
+    /// Send a Chat to the OpenAI API
+    /// - Parameters:
+    ///   - prompt: The Text Prompt
+    ///   - model: The AI Model to Use. Set to `OpenAIModelType.gpt3(.chatGPTturbo)` by default which is the most capable model
+    ///   - maxTokens: The limit character for the returned response, defaults to 16 as per the API
+    ///   - completionHandler: Returns an OpenAI Data Model
+    public func sendChat(with messages: [OpenAIChatMessage], model: OpenAIModelType = .gpt3(.chatGPTturbo), maxTokens: Int = 16, user: String? = nil, completionHandler: @escaping (Result<OpenAI, OpenAIError>) -> Void) {
+        let endpoint = Endpoint.chat
+        let body = Command(messages: messages, model: model.modelName, maxTokens: maxTokens, user: user)
+        let request = prepareRequest(endpoint, body: body)
+        
+        makeRequest(request: request) { result in
+            switch result {
+            case .success(let success):
+                do {
+                    let res = try JSONDecoder().decode(OpenAI.self, from: success)
+                    completionHandler(.success(res))
+                } catch {
+                    completionHandler(.failure(.decodingError(error: error)))
+                }
+            case .failure(let failure):
+                completionHandler(.failure(.genericError(error: failure)))
+            }
+        }
+    }
+    
     /// Send a Completion to the OpenAI API
     /// - Parameters:
     ///   - prompt: The Text Prompt
@@ -106,6 +133,17 @@ extension OpenAISwift {
 }
 
 extension OpenAISwift {
+    
+    @available(swift 5.5)
+    @available(macOS 10.15, iOS 13, watchOS 6, tvOS 13, *)
+    public func sendChat(with messages: [OpenAIChatMessage], model: OpenAIModelType = .gpt3(.chatGPTturbo), maxTokens: Int = 16, user: String? = nil) async throws -> OpenAI {
+        return try await withCheckedThrowingContinuation { continuation in
+            sendChat(with: messages, model: model, maxTokens: maxTokens, user: user) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
+    
     /// Send a Completion to the OpenAI API
     /// - Parameters:
     ///   - prompt: The Text Prompt
@@ -140,6 +178,38 @@ extension OpenAISwift {
 }
 
 extension OpenAISwift {
+    
+    @available(swift 5.5)
+    @available(macOS 12.0, iOS 15.0, watchOS 8.0, tvOS 15.0, *)
+    @discardableResult
+    public func streamChat(with messages: [OpenAIChatMessage], model: OpenAIModelType = .gpt3(.chatGPTturbo), maxTokens: Int = 16, stop: [String]? = nil, user: String? = nil, onDataReceived: ((OpenAI) -> Void)) async throws -> [OpenAI] {
+        
+        let endpoint = Endpoint.chat
+        let body = Command(messages: messages, model: model.modelName, maxTokens: maxTokens, stream: true, stop: stop, user: user)
+        let request = prepareRequest(endpoint, body: body)
+        
+        let session = URLSession.shared
+        
+        let (asyncBytes, response) = try await session.bytes(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            if let httpResponse = response as? HTTPURLResponse {
+                throw OpenAIError.invalidStatusCode(code: httpResponse.statusCode)
+            }
+            throw OpenAIError.invalidStatusCode(code: nil)
+        }
+        
+        var results: [OpenAI] = []
+        for try await line in asyncBytes.lines {
+            
+            if let parsedLine = processStreamLine(line: line) {
+                onDataReceived(parsedLine)
+                results.append(parsedLine)
+            }
+        }
+        return results
+    }
     
     /// Send a Completion to the OpenAI API with a streamed response
     /// - Parameters:

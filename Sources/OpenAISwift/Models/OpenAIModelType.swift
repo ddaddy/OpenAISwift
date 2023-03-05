@@ -31,6 +31,11 @@ public enum OpenAIModelType {
     /// [GPT-3 Models OpenAI API Docs](https://beta.openai.com/docs/models/gpt-3)
     public enum GPT3: String {
         
+        /// Powers ChatGPT. OpenAI’s most advanced language model.
+        ///
+        /// > Model Name: gpt-3.5-turbo
+        case chatGPTturbo = "gpt-3.5-turbo"
+        
         /// Most capable GPT-3 model. Can do any task the other models can do, often with higher quality, longer output and better instruction-following. Also supports inserting completions within text.
         ///
         /// > Model Name: text-davinci-003
