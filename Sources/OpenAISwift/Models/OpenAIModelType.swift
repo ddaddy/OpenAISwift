@@ -9,6 +9,9 @@ import Foundation
 
 /// The type of model used to generate the output
 public enum OpenAIModelType {
+    /// Can be used to supply a raw string
+    case raw(String)
+    
     /// ``GPT3`` Family of Models
     case gpt3(GPT3)
     
@@ -20,6 +23,7 @@ public enum OpenAIModelType {
     
     public var modelName: String {
         switch self {
+        case .raw(let string): return string
         case .gpt3(let model): return model.rawValue
         case .codex(let model): return model.rawValue
         case .feature(let model): return model.rawValue
